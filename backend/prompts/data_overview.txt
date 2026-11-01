@@ -1,0 +1,3 @@
+For data overview and calculations with pandas:
+- Write the code an analyst would write: df.info(), df.describe(), df.head(10).
+- Use display(value) to show several tables from one cell.

@@ -1,0 +1,20 @@
+services:
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: data-analysis-bot
+
+    ports:
+      - "8000:8000"
+
+    env_file:
+      - .env
+
+    volumes:
+      - ./app:/app/app
+      - ./frontend:/app/frontend
+
+    restart: unless-stopped
