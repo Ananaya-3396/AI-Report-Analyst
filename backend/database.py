@@ -45,3 +45,11 @@ def insert_dataset(collection_name, records):
     result = collection.insert_many(records)
 
     return len(result.inserted_ids)
+
+
+def delete_dataset(collection_name):
+    """
+    Permanently drop a dataset collection and all of its rows.
+    """
+
+    db.drop_collection(collection_name)

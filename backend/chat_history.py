@@ -75,6 +75,14 @@ def save_selected_dataset(dataset_name: str | None) -> None:
     )
 
 
+def clear_selected_dataset_if(dataset_name: str) -> None:
+    """Unselect a dataset that no longer exists, leaving any other selection alone."""
+    settings.update_one(
+        {"_id": "selected_dataset", "value": dataset_name},
+        {"$set": {"value": None}},
+    )
+
+
 def clear_history() -> None:
     """Permanently delete all saved turns and notes. The selected dataset is kept."""
     conversations.delete_many({})

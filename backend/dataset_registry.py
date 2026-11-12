@@ -31,6 +31,14 @@ def _fingerprint(collection) -> str:
     return digest.hexdigest()
 
 
+def forget_dataset_name(dataset_name: str) -> None:
+    """Unlink a deleted collection's name, so a later upload under that name gets its own ID.
+
+    The ID record stays, because saved chats still refer to it.
+    """
+    registry.update_many({"names": dataset_name}, {"$pull": {"names": dataset_name}})
+
+
 def get_dataset_id(dataset_name: str) -> str:
     """Return the collection's ID, registering it the first time it is seen."""
     collection = get_database()[dataset_name]

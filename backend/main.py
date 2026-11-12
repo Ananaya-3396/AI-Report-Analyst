@@ -16,6 +16,7 @@ import re
 from backend.analysis import run_code
 from backend.chat_history import (
     clear_history,
+    clear_selected_dataset_if,
     load_history,
     save_note,
     save_selected_dataset,
@@ -23,10 +24,11 @@ from backend.chat_history import (
 )
 from backend.database import (
     DB_NAME,
+    delete_dataset,
     get_dataset_names,
     insert_dataset
 )
-from backend.dataset_registry import get_dataset_id
+from backend.dataset_registry import forget_dataset_name, get_dataset_id
 from backend.llm import (
     LLMConfigurationError,
     LLMProviderError,
@@ -201,6 +203,18 @@ def get_datasets():
         "database": DB_NAME,
         "datasets": datasets
     }
+
+
+@app.delete("/api/datasets/{dataset_name}")
+def remove_dataset(dataset_name: str):
+    """Drop a dataset's collection from MongoDB and unselect it. Saved chats about it are kept."""
+    if dataset_name not in get_dataset_names():
+        raise HTTPException(status_code=404, detail="Dataset collection was not found.")
+
+    delete_dataset(dataset_name)
+    forget_dataset_name(dataset_name)
+    clear_selected_dataset_if(dataset_name)
+    return {"deleted": dataset_name}
 
 
 @app.post("/api/datasets/{dataset_name}/profile")

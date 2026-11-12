@@ -4,33 +4,56 @@
 
 const BACKEND_URL = window.location.origin;
 let saveQueue = Promise.resolve();
+let cellCount = 0;
 
 // ---- State ----
 const state = {
   messages: [],
   datasets: [],
+  datasetsError: false,
   selectedDataset: null,
   busy: false,
 };
 
 // ---- DOM Refs ----
 const $chatMessages    = document.getElementById("chatMessages");
+const $emptyState      = document.getElementById("emptyState");
+const $emptyText       = document.getElementById("emptyText");
 const $chatForm        = document.getElementById("chatForm");
 const $chatInput       = document.getElementById("chatInput");
-const $datasetSelect   = document.getElementById("datasetSelect");
-const $useDatasetBtn   = document.getElementById("useDatasetBtn");
-const $showUploadBtn   = document.getElementById("showUploadBtn");
-const $uploadArea      = document.getElementById("uploadArea");
+const $sendBtn         = $chatForm.querySelector("button[type='submit']");
+const $composerHint    = document.getElementById("composerHint");
+const $contextChip     = document.getElementById("contextChip");
+const $datasetSearch   = document.getElementById("datasetSearch");
+const $datasetList     = document.getElementById("datasetList");
+const $datasetCount    = document.getElementById("datasetCount");
+const $datasetPill     = document.getElementById("datasetPill");
+const $datasetPillName = document.getElementById("datasetPillName");
 const $fileInput       = document.getElementById("fileInput");
 const $collectionNameInput = document.getElementById("collectionNameInput");
 const $fileDrop        = document.getElementById("fileDrop");
 const $fileName        = document.getElementById("fileName");
 const $uploadBtn       = document.getElementById("uploadBtn");
-const $uploadSpinner   = document.getElementById("uploadSpinner");
+const $uploadProgress  = document.getElementById("uploadProgress");
+const $uploadStatus    = document.getElementById("uploadStatus");
+const $uploadPercent   = document.getElementById("uploadPercent");
+const $uploadBar       = document.getElementById("uploadBar");
 const $toggleSidebar   = document.getElementById("toggleSidebar");
+const $themeToggle     = document.getElementById("themeToggle");
 const $sidebar         = document.getElementById("sidebar");
 const $connectionStatus = document.getElementById("connectionStatus");
 const $clearChatBtn    = document.getElementById("clearChatBtn");
+
+const FILE_DROP_TEXT = $fileName.innerHTML;
+
+const ICONS = {
+  bot: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 4v4M9 13v2M15 13v2"/></svg>',
+  check: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg>',
+  table: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>',
+  copy: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+  trash: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
+  warn: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+};
 
 // ==========================================================
 // Helpers
@@ -71,10 +94,38 @@ function renderMarkdown(text) {
   return html.trim();
 }
 
+const PY_TOKENS = /(#[^\n]*)|("""[\s\S]*?"""|'''[\s\S]*?'''|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')|\b(\d+(?:\.\d+)?)\b|\b(import|from|as|def|return|if|elif|else|for|while|in|not|and|or|is|None|True|False|with|lambda|try|except|finally|class)\b|\b([A-Za-z_]\w*)(?=\()/g;
+
+/** Builds a syntax-coloured code block from text nodes, so code can never run as markup. */
+function highlightPython(code) {
+  const pre = document.createElement("pre");
+  pre.className = "cell-code";
+  let last = 0;
+  for (const match of code.matchAll(PY_TOKENS)) {
+    pre.append(code.slice(last, match.index));
+    const span = document.createElement("span");
+    span.className = match[1] ? "tok-com" : match[2] ? "tok-str" : match[3] ? "tok-num" : match[4] ? "tok-kw" : "tok-fn";
+    span.textContent = match[0];
+    pre.append(span);
+    last = match.index + match[0].length;
+  }
+  pre.append(code.slice(last));
+  return pre;
+}
+
 function scrollToBottom() {
   requestAnimationFrame(() => {
     $chatMessages.scrollTop = $chatMessages.scrollHeight;
   });
+}
+
+function updateEmptyState() {
+  $emptyState.classList.toggle("hidden", state.messages.length > 0);
+}
+
+function autoResizeInput() {
+  $chatInput.style.height = "auto";
+  $chatInput.style.height = `${$chatInput.scrollHeight}px`;
 }
 
 /** Runs saves one at a time, so they are stored in the order they were made. */
@@ -105,7 +156,7 @@ function historyItemToMessages(item) {
       { role: "assistant", content: item.answer, includeInContext: true, cells: item.cells || [], historyId: item._id },
     ];
   }
-  return [{ role: "assistant", content: item.content, includeInContext: true, cells: [], historyId: item._id }];
+  return [{ role: "assistant", content: item.content, includeInContext: true, cells: [], historyId: item._id, note: true }];
 }
 
 async function restoreConversation() {
@@ -124,63 +175,102 @@ async function restoreConversation() {
   }
 }
 
-function addMessage(role, content, includeInContext = true, cells = []) {
-  const message = { role, content, includeInContext, cells };
+function addMessage(role, content, includeInContext = true, cells = [], extra = {}) {
+  const message = { role, content, includeInContext, cells, ...extra };
   state.messages.push(message);
   renderMessage(message);
   scrollToBottom();
   return message;
 }
 
+function addError(content) {
+  return addMessage("assistant", content, true, [], { error: true });
+}
+
 /** Shows an app message that should stay in the saved history. The server saves answers itself. */
 function addNote(content) {
-  const message = addMessage("assistant", content);
+  const message = addMessage("assistant", content, true, [], { note: true });
   queueSave("/api/chat/notes", "POST", { content }, ({ id }) => {
     message.historyId = id;
   });
 }
 
 function renderMessage(message) {
-  const { role, content, cells = [] } = message;
-  const isBot = role === "assistant" || role === "bot";
-  const wrapper = document.createElement("div");
-  wrapper.className = `message ${isBot ? "bot" : "user"}`;
-  if (cells.length) wrapper.classList.add("has-cells");
+  const isBot = message.role === "assistant" || message.role === "bot";
+  const element = !isBot ? renderUserMessage(message)
+    : message.note ? renderNote(message)
+      : renderBotMessage(message);
+  $chatMessages.appendChild(element);
+  updateEmptyState();
+}
 
-  const avatar = document.createElement("div");
-  avatar.className = "avatar";
-  avatar.textContent = isBot ? "🤖" : "👤";
+function renderNote({ content }) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "msg note";
+  wrapper.innerHTML = ICONS.check;
+  const text = document.createElement("div");
+  text.innerHTML = renderMarkdown(content);
+  wrapper.appendChild(text);
+  return wrapper;
+}
+
+function renderBotMessage({ content, cells = [], error }) {
+  const wrapper = document.createElement("div");
+  wrapper.className = `msg bot${error ? " error" : ""}`;
+
+  const head = document.createElement("div");
+  head.className = "bot-head";
+  head.innerHTML = `<div class="bot-avatar">${ICONS.bot}</div><span class="bot-name">AI Report Analyst</span>`;
+  if (cells.length || error) {
+    const badge = document.createElement("span");
+    badge.className = "bot-badge";
+    badge.textContent = error ? "Error" : `${cells.length} ${cells.length === 1 ? "cell" : "cells"} ran`;
+    head.appendChild(badge);
+  }
+
+  const body = document.createElement("div");
+  body.className = "bot-body";
+  cells.forEach((cell) => body.appendChild(renderCell(cell)));
+
+  const answer = document.createElement("div");
+  answer.className = "answer";
+  answer.innerHTML = renderMarkdown(content);
+  body.appendChild(answer);
+
+  wrapper.append(head, body);
+  return wrapper;
+}
+
+/** A user's question, with an Edit button that swaps it for an inline editor. */
+function renderUserMessage(message) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "msg user";
 
   const bubble = document.createElement("div");
   bubble.className = "bubble";
-  cells.forEach((cell) => bubble.appendChild(renderCell(cell)));
+  bubble.textContent = message.content;
 
-  const explanation = document.createElement("div");
-  explanation.innerHTML = renderMarkdown(content);
-  bubble.appendChild(explanation);
-
-  wrapper.appendChild(avatar);
-  wrapper.appendChild(isBot ? bubble : renderEditableBody(message, bubble));
-  $chatMessages.appendChild(wrapper);
-}
-
-/** Wraps a user's message with an Edit button that swaps it for an inline editor. */
-function renderEditableBody(message, bubble) {
-  const body = document.createElement("div");
-  body.className = "message-body";
+  const meta = document.createElement("div");
+  meta.className = "msg-meta";
+  if (message.dataset) {
+    const dataset = document.createElement("span");
+    dataset.textContent = `on ${message.dataset}`;
+    meta.appendChild(dataset);
+  }
 
   const editButton = document.createElement("button");
   editButton.type = "button";
   editButton.className = "edit-btn";
-  editButton.textContent = "✏️ Edit";
+  editButton.textContent = "Edit";
   editButton.addEventListener("click", () => {
     if (state.busy) return;
-    body.replaceChildren(renderEditor(message, () => body.replaceChildren(bubble, editButton)));
-    body.querySelector("textarea").focus();
+    wrapper.replaceChildren(renderEditor(message, () => wrapper.replaceChildren(bubble, meta)));
+    wrapper.querySelector("textarea").focus();
   });
+  meta.appendChild(editButton);
 
-  body.append(bubble, editButton);
-  return body;
+  wrapper.append(bubble, meta);
+  return wrapper;
 }
 
 function renderEditor(message, closeEditor) {
@@ -195,7 +285,7 @@ function renderEditor(message, closeEditor) {
 
   if (state.messages[state.messages.length - 1] !== message) {
     const hint = document.createElement("div");
-    hint.className = "cell-note";
+    hint.className = "edit-note";
     hint.textContent = "Sending replaces this question and everything after it.";
     editor.appendChild(hint);
   }
@@ -234,9 +324,27 @@ function renderEditor(message, closeEditor) {
 }
 
 function renderAllMessages() {
-  $chatMessages.innerHTML = "";
+  $chatMessages.querySelectorAll(".msg").forEach((element) => element.remove());
+  cellCount = 0;
   state.messages.forEach(renderMessage);
+  updateEmptyState();
   scrollToBottom();
+}
+
+/** A placeholder card shown while the backend writes and runs code. */
+function showThinking() {
+  const card = document.createElement("div");
+  card.className = "msg bot thinking";
+  card.setAttribute("aria-live", "polite");
+  card.innerHTML = `
+    <div class="bot-head"><div class="bot-avatar">${ICONS.bot}</div><span class="bot-name">AI Report Analyst</span></div>
+    <div class="bot-body">
+      <span class="thinking-label">Writing and running code…</span>
+      <div class="shimmer"></div><div class="shimmer"></div><div class="shimmer"></div>
+    </div>`;
+  $chatMessages.appendChild(card);
+  scrollToBottom();
+  return card;
 }
 
 function createTextBlock(className, text) {
@@ -289,6 +397,7 @@ function renderTableOutput(output) {
   if (dimensions) {
     const caption = document.createElement("div");
     caption.className = "cell-note";
+    caption.style.marginTop = "6px";
     caption.textContent = dimensions.textContent;
     container.appendChild(caption);
   }
@@ -361,7 +470,7 @@ function renderChartOutput(output) {
   });
 
   const seriesNames = [...new Set(points.map((p) => p.series || "Value"))];
-  const colors = ["#7289ff", "#25c6b7", "#ffb454", "#f2778b", "#a78bfa", "#7acb7a"];
+  const colors = ["#4f46e5", "#10b981", "#f59e0b", "#ec4899", "#0ea5e9", "#8b5cf6"];
   if (spec.kind === "bar") {
     const groupWidth = plotWidth / categories.length * .72;
     const barWidth = groupWidth / seriesNames.length;
@@ -372,7 +481,7 @@ function renderChartOutput(output) {
         (plotWidth / categories.length - groupWidth) / 2 + seriesIndex * barWidth;
       const y = yPos(Number(point.y));
       add("rect", { x, y: Math.min(y, yPos(0)), width: Math.max(1, barWidth - 2),
-        height: Math.max(1, Math.abs(yPos(0) - y)), fill: colors[seriesIndex % colors.length], rx: 2 });
+        height: Math.max(1, Math.abs(yPos(0) - y)), fill: colors[seriesIndex % colors.length], rx: 3 });
     });
   } else {
     seriesNames.forEach((name, seriesIndex) => {
@@ -407,15 +516,54 @@ function renderChartOutput(output) {
 
 /** Renders one executed cell: collapsible code, then its output, as in a notebook. */
 function renderCell(cell) {
+  const number = ++cellCount;
   const container = document.createElement("div");
   container.className = "cell";
 
-  const codeToggle = document.createElement("details");
-  const summary = document.createElement("summary");
-  summary.textContent = "Show code";
-  codeToggle.appendChild(summary);
-  codeToggle.appendChild(createTextBlock("cell-code", cell.code));
-  container.appendChild(codeToggle);
+  const codeBlock = document.createElement("div");
+  codeBlock.className = "code-block";
+  const head = document.createElement("div");
+  head.className = "code-head";
+  head.innerHTML = `<span class="cell-label">In [${number}]:</span><span>python</span><span class="spacer"></span>`;
+
+  const code = highlightPython(cell.code);
+  code.hidden = true;
+
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "code-btn";
+  toggle.textContent = "Show code";
+  toggle.setAttribute("aria-expanded", "false");
+  toggle.addEventListener("click", () => {
+    code.hidden = !code.hidden;
+    toggle.textContent = code.hidden ? "Show code" : "Hide code";
+    toggle.setAttribute("aria-expanded", String(!code.hidden));
+  });
+
+  const copy = document.createElement("button");
+  copy.type = "button";
+  copy.className = "code-btn";
+  copy.innerHTML = `${ICONS.copy}<span>Copy</span>`;
+  copy.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(cell.code);
+      copy.querySelector("span").textContent = "Copied";
+    } catch {
+      copy.querySelector("span").textContent = "Copy failed";
+    }
+    setTimeout(() => { copy.querySelector("span").textContent = "Copy"; }, 1500);
+  });
+
+  head.append(toggle, copy);
+  codeBlock.append(head, code);
+  container.appendChild(codeBlock);
+
+  if (cell.outputs.length || cell.error) {
+    const label = document.createElement("div");
+    label.className = "out-label";
+    label.innerHTML = `<b>Out [${number}]:</b>`;
+    container.appendChild(label);
+  }
 
   cell.outputs.forEach((output) => {
     container.appendChild(
@@ -430,15 +578,17 @@ function renderCell(cell) {
 
   if (cell.notice) {
     const notice = document.createElement("div");
-    notice.className = "cell-note";
-    notice.textContent = cell.notice;
+    notice.className = "cell-notice";
+    notice.innerHTML = ICONS.warn;
+    notice.append(cell.notice);
     container.appendChild(notice);
   }
   return container;
 }
 
-/** The code is kept in chat history so follow-up questions can build on it. */
-function toContextContent({ content, cells = [] }) {
+/** Only the latest answer's code is sent, so follow-ups can build on it without resending older code. */
+function toContextContent({ content, cells = [] }, includeCode) {
+  if (!includeCode) return content.slice(0, 4000);
   const code = cells.map((cell) => `Code run with run_python:\n${cell.code}`).join("\n\n");
   return (code ? `${code}\n\nExplanation:\n${content}` : content).slice(0, 4000);
 }
@@ -459,22 +609,28 @@ async function fetchDatasets() {
   }
 }
 
-async function uploadDataset(file) {
+/** Uploads with XMLHttpRequest, because fetch cannot report upload progress. */
+function uploadDataset(file, onProgress) {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("collection_name", $collectionNameInput.value.trim());
 
-  const res = await fetch(`${BACKEND_URL}/upload-dataset`, {
-    method: "POST",
-    body: formData,
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${BACKEND_URL}/upload-dataset`);
+    xhr.responseType = "json";
+    xhr.upload.addEventListener("progress", (e) => {
+      if (e.lengthComputable) onProgress(e.loaded / e.total);
+    });
+    xhr.upload.addEventListener("load", () => onProgress(1));
+    xhr.addEventListener("load", () => {
+      const data = xhr.response || {};
+      if (xhr.status >= 200 && xhr.status < 300) resolve(data);
+      else reject(new Error(data.detail || `Upload failed (HTTP ${xhr.status})`));
+    });
+    xhr.addEventListener("error", () => reject(new Error("Could not reach the server.")));
+    xhr.send(formData);
   });
-
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    throw new Error(errData.detail || `Upload failed (HTTP ${res.status})`);
-  }
-
-  return res.json();
 }
 
 async function checkBackendHealth() {
@@ -490,14 +646,18 @@ async function sendChatMessage(replacesId = null) {
   const messages = state.messages
     .filter((message) => message.includeInContext !== false)
     .filter((message) => message.role === "user" || message.role === "assistant")
-    .slice(-20)
-    .map((message) => ({ role: message.role, content: toContextContent(message) }));
+    .slice(-20);
+  const lastAnswer = messages.findLast((message) => message.role === "assistant");
+  const context = messages.map((message) => ({
+    role: message.role,
+    content: toContextContent(message, message === lastAnswer),
+  }));
 
   const res = await fetch(`${BACKEND_URL}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      messages,
+      messages: context,
       selected_dataset: state.selectedDataset,
       replaces_id: replacesId,
     }),
@@ -511,19 +671,98 @@ async function sendChatMessage(replacesId = null) {
 }
 
 // ==========================================================
-// Dataset Select Population
+// Datasets
 // ==========================================================
 
-function populateDatasets(datasets) {
-  // Clear existing options except the placeholder
-  $datasetSelect.innerHTML = '<option value="" disabled selected>Select dataset…</option>';
+function renderDatasetList() {
+  const query = $datasetSearch.value.trim().toLowerCase();
+  const names = state.datasets.filter((name) => name.toLowerCase().includes(query));
+  $datasetCount.textContent = state.datasets.length;
+  $datasetList.replaceChildren();
 
-  datasets.forEach((name) => {
-    const opt = document.createElement("option");
-    opt.value = name;
-    opt.textContent = name;
-    $datasetSelect.appendChild(opt);
+  if (!names.length) {
+    const empty = document.createElement("p");
+    empty.className = "list-empty";
+    empty.textContent = state.datasetsError ? "Cannot reach the backend."
+      : query ? "No collections match your search."
+        : "No collections yet. Upload a file below.";
+    $datasetList.appendChild(empty);
+    return;
+  }
+
+  names.forEach((name) => {
+    const active = name === state.selectedDataset;
+    const card = document.createElement("div");
+    card.className = `dataset-card${active ? " active" : ""}`;
+
+    const select = document.createElement("button");
+    select.type = "button";
+    select.className = "ds-select";
+    select.setAttribute("role", "option");
+    select.setAttribute("aria-selected", String(active));
+    select.innerHTML = `${ICONS.table}<span class="ds-text"><span class="ds-name"></span><span class="ds-meta">MongoDB collection</span></span><span class="ds-action"></span>`;
+    select.querySelector(".ds-name").textContent = name;
+    select.querySelector(".ds-action").textContent = active ? "In use" : "Use";
+    select.title = name;
+    select.addEventListener("click", () => selectDataset(name));
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "ds-delete";
+    remove.innerHTML = ICONS.trash;
+    remove.title = `Delete ${name} from MongoDB`;
+    remove.setAttribute("aria-label", `Delete ${name} from MongoDB`);
+    remove.addEventListener("click", () => deleteDataset(name));
+
+    card.append(select, remove);
+    $datasetList.appendChild(card);
   });
+}
+
+/** Drops the collection from MongoDB, and removes it from this session. Saved chats about it stay. */
+async function deleteDataset(name) {
+  if (state.busy) return;
+  if (!window.confirm(`Permanently delete "${name}" from MongoDB?\n\nAll of its rows will be removed and cannot be recovered. Chat messages about it are kept.`)) return;
+
+  try {
+    // A pending save could otherwise select the dataset again after it is deleted.
+    await saveQueue;
+    const res = await fetch(`${BACKEND_URL}/api/datasets/${encodeURIComponent(name)}`, { method: "DELETE" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+
+    state.datasets = state.datasets.filter((dataset) => dataset !== name);
+    // The server has already unselected it.
+    if (state.selectedDataset === name) state.selectedDataset = null;
+    updateDatasetUI();
+    addNote(`Deleted **${name}** from MongoDB.`);
+  } catch (err) {
+    addError(`Could not delete **${name}**: ${err.message}`);
+  }
+}
+
+/** Shows the selected dataset in the header, the composer, and the sidebar list. */
+function updateDatasetUI() {
+  const name = state.selectedDataset;
+  $datasetPillName.textContent = name || "No dataset selected";
+  $datasetPill.classList.toggle("active", Boolean(name));
+  $contextChip.textContent = name || "No dataset";
+  $contextChip.classList.toggle("active", Boolean(name));
+  $composerHint.textContent = name ? "" : "No dataset selected. Pick or upload one in the sidebar so the analyst can run code.";
+  renderDatasetList();
+}
+
+function selectDataset(name) {
+  if (name === state.selectedDataset) return;
+  state.selectedDataset = name;
+  saveSelectedDataset();
+  updateDatasetUI();
+  addNote(`Selected **${name}** from MongoDB. Ask what you want to analyze.`);
+
+  // Close sidebar on mobile after selection
+  if (window.innerWidth <= 768) {
+    $sidebar.classList.remove("open");
+  }
 }
 
 // ==========================================================
@@ -535,45 +774,47 @@ $toggleSidebar.addEventListener("click", () => {
   $sidebar.classList.toggle("open");
 });
 
-// -- Dataset select change --
-$datasetSelect.addEventListener("change", () => {
-  $useDatasetBtn.disabled = !$datasetSelect.value;
+// -- Theme toggle --
+$themeToggle.addEventListener("click", () => {
+  const root = document.documentElement;
+  const current = root.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  const next = current === "dark" ? "light" : "dark";
+  root.dataset.theme = next;
+  try {
+    localStorage.setItem("theme", next);
+  } catch {}
 });
 
-// -- Use dataset --
-$useDatasetBtn.addEventListener("click", async () => {
-  const name = $datasetSelect.value;
-  if (!name) return;
+// -- Dataset search --
+$datasetSearch.addEventListener("input", renderDatasetList);
 
-  state.selectedDataset = name;
-  saveSelectedDataset();
-  addNote(
-    `Great! You’ve selected **${name}** from MongoDB. It’s ready. What would you like me to do with this dataset?`
-  );
-
-  // Close sidebar on mobile after selection
-  if (window.innerWidth <= 768) {
-    $sidebar.classList.remove("open");
-  }
+// -- Suggestions --
+document.querySelectorAll(".suggestion").forEach((button) => {
+  button.addEventListener("click", () => {
+    $chatInput.value = button.dataset.prompt;
+    autoResizeInput();
+    if (state.selectedDataset && !state.busy) {
+      $chatForm.requestSubmit();
+    } else {
+      $chatInput.focus();
+    }
+  });
 });
 
-// -- Show upload --
-$showUploadBtn.addEventListener("click", () => {
-  $uploadArea.classList.toggle("hidden");
-});
+// -- File choice --
+function chooseFile(file) {
+  $collectionNameInput.value = file.name
+    .replace(/\.[^.]+$/, "")
+    .replace(/[^a-zA-Z0-9_-]/g, "_")
+    .slice(0, 120) || "dataset";
+  $fileName.textContent = file.name;
+  $fileDrop.classList.add("has-file");
+  $uploadBtn.disabled = false;
+}
 
-// -- File input --
 $fileInput.addEventListener("change", () => {
   const file = $fileInput.files[0];
-  if (file) {
-    $collectionNameInput.value = file.name
-      .replace(/\.[^.]+$/, "")
-      .replace(/[^a-zA-Z0-9_-]/g, "_")
-      .slice(0, 120) || "dataset";
-    $fileName.textContent = file.name;
-    $fileDrop.classList.add("has-file");
-    $uploadBtn.disabled = false;
-  }
+  if (file) chooseFile(file);
 });
 
 // -- Drag & drop --
@@ -592,19 +833,21 @@ $fileDrop.addEventListener("drop", (e) => {
     // Validate extension
     const ext = file.name.split(".").pop().toLowerCase();
     if (!["csv", "xlsx", "xls"].includes(ext)) {
-      addMessage("assistant", "❌ Please upload a **.csv**, **.xlsx**, or **.xls** file.");
+      addError("Please upload a **.csv**, **.xlsx**, or **.xls** file.");
       return;
     }
     $fileInput.files = e.dataTransfer.files;
-    $collectionNameInput.value = file.name
-      .replace(/\.[^.]+$/, "")
-      .replace(/[^a-zA-Z0-9_-]/g, "_")
-      .slice(0, 120) || "dataset";
-    $fileName.textContent = file.name;
-    $fileDrop.classList.add("has-file");
-    $uploadBtn.disabled = false;
+    chooseFile(file);
   }
 });
+
+function setUploadProgress(fraction) {
+  const sent = fraction >= 1;
+  $uploadProgress.classList.toggle("processing", sent);
+  $uploadStatus.textContent = sent ? "Storing in MongoDB…" : "Uploading…";
+  $uploadPercent.textContent = sent ? "" : `${Math.round(fraction * 100)}%`;
+  $uploadBar.style.width = `${Math.round(fraction * 100)}%`;
+}
 
 // -- Upload button --
 $uploadBtn.addEventListener("click", async () => {
@@ -612,35 +855,47 @@ $uploadBtn.addEventListener("click", async () => {
   if (!file) return;
 
   $uploadBtn.disabled = true;
-  $uploadSpinner.classList.remove("hidden");
+  setUploadProgress(0);
+  $uploadProgress.classList.remove("hidden");
 
   try {
-    const result = await uploadDataset(file);
+    const result = await uploadDataset(file, setUploadProgress);
     const dsName = result.dataset_name;
 
     state.selectedDataset = dsName;
     saveSelectedDataset();
     addNote(
-      `✅ **Dataset uploaded successfully!**\n\n**Database:** \`${result.database}\`\n\n**Collection:** \`${dsName}\`\n\n**Dataset ID:** \`${result.dataset_id}\`\n\n**Rows:** \`${result.rows}\`\n\nIt’s ready. What would you like me to do with this dataset?`
+      `Uploaded **${dsName}**: ${result.rows} rows stored in \`${result.database}\` (dataset ID \`${result.dataset_id}\`). Ask what you want to analyze.`
     );
 
     // Refresh dataset list
     const datasets = await fetchDatasets();
     if (datasets) {
       state.datasets = datasets;
-      populateDatasets(datasets);
+      state.datasetsError = false;
     }
+    updateDatasetUI();
 
     // Reset upload UI
     $fileInput.value = "";
-    $fileName.textContent = "Choose a file or drag it here";
+    $collectionNameInput.value = "";
+    $fileName.innerHTML = FILE_DROP_TEXT;
     $fileDrop.classList.remove("has-file");
-    $uploadArea.classList.add("hidden");
   } catch (err) {
-    addMessage("assistant", `❌ Upload failed: ${err.message}`);
+    addError(`Upload failed: ${err.message}`);
+    $uploadBtn.disabled = false;
   } finally {
-    $uploadBtn.disabled = true;
-    $uploadSpinner.classList.add("hidden");
+    $uploadProgress.classList.add("hidden");
+    if (!$fileInput.files[0]) $uploadBtn.disabled = true;
+  }
+});
+
+// -- Chat input --
+$chatInput.addEventListener("input", autoResizeInput);
+$chatInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+    e.preventDefault();
+    $chatForm.requestSubmit();
   }
 });
 
@@ -648,15 +903,16 @@ $uploadBtn.addEventListener("click", async () => {
 $chatForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const text = $chatInput.value.trim();
-  if (!text) return;
+  if (!text || state.busy) return;
 
   $chatInput.value = "";
+  autoResizeInput();
   setBusy(true);
 
   try {
     await sendQuestion(text);
   } catch (err) {
-    addMessage("assistant", `❌ ${err.message}`);
+    addError(err.message);
   } finally {
     setBusy(false);
   }
@@ -665,14 +921,20 @@ $chatForm.addEventListener("submit", async (e) => {
 function setBusy(busy) {
   state.busy = busy;
   $chatInput.disabled = busy;
-  $chatForm.querySelector("button[type='submit']").disabled = busy;
+  $sendBtn.disabled = busy;
   if (!busy) $chatInput.focus();
 }
 
 async function sendQuestion(text, replacesId = null) {
-  const question = addMessage("user", text);
-  question.dataset = state.selectedDataset;
-  const { reply, cells, turn_id: turnId } = await sendChatMessage(replacesId);
+  const question = addMessage("user", text, true, [], { dataset: state.selectedDataset });
+  const thinking = showThinking();
+  let data;
+  try {
+    data = await sendChatMessage(replacesId);
+  } finally {
+    thinking.remove();
+  }
+  const { reply, cells, turn_id: turnId } = data;
   question.historyId = turnId;
   addMessage("assistant", reply, true, cells).historyId = turnId;
 }
@@ -697,30 +959,32 @@ async function submitEdit(message, text) {
     await sendQuestion(text, replacesId);
     if (state.selectedDataset !== previousDataset) {
       saveSelectedDataset();
-      $datasetSelect.value = state.selectedDataset;
+      updateDatasetUI();
     }
   } catch (err) {
     state.messages = previousMessages;
     state.selectedDataset = previousDataset;
     renderAllMessages();
-    addMessage("assistant", `❌ Your edit was not applied: ${err.message}`);
+    addError(`Your edit was not applied: ${err.message}`);
   } finally {
     setBusy(false);
   }
 }
 
-// Let keyboard users scroll chat history while the message box has focus.
+// Let keyboard users scroll chat history. Arrow keys stay with the message box for moving the caret.
 document.addEventListener("keydown", (e) => {
   const activeElement = document.activeElement;
-  const isChatContext = activeElement === $chatInput || activeElement === $chatMessages;
-  if (!isChatContext) return;
+  const inInput = activeElement === $chatInput;
+  if (!inInput && activeElement !== $chatMessages) return;
 
   let scrollDelta = 0;
   switch (e.key) {
     case "ArrowDown":
+      if (inInput) return;
       scrollDelta = 48;
       break;
     case "ArrowUp":
+      if (inInput) return;
       scrollDelta = -48;
       break;
     case "PageDown":
@@ -737,24 +1001,6 @@ document.addEventListener("keydown", (e) => {
   $chatMessages.scrollBy({ top: scrollDelta });
 });
 
-// ==========================================================
-// Initialization
-// ==========================================================
-
-function showWelcomeMessage() {
-  let datasetText = "";
-  if (state.datasets.length > 0) {
-    datasetText = state.datasets.map((d) => `- 📊 **${d}**`).join("\n");
-  } else {
-    datasetText = "No datasets are currently available in MongoDB.";
-  }
-
-  addMessage(
-    "assistant",
-    `👋 Hey! I'm your **Report Analysis Bot**.\n\nCan you tell me what kind of analysis you would like me to perform?\n\nI currently have the following datasets available in MongoDB:\n\n${datasetText}\n\nYou also have the flexibility of uploading your own **CSV or Excel dataset**.\n\nPlease let me know how you wish to proceed.`
-  );
-}
-
 // -- Clear chat history --
 $clearChatBtn.addEventListener("click", async () => {
   if (!window.confirm("Permanently delete the whole chat history?")) return;
@@ -763,50 +1009,45 @@ $clearChatBtn.addEventListener("click", async () => {
     const res = await fetch(`${BACKEND_URL}/api/chat/history`, { method: "DELETE" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     state.messages = [];
-    $chatMessages.innerHTML = "";
-    showWelcomeMessage();
+    renderAllMessages();
   } catch (err) {
-    addMessage("assistant", `❌ Could not clear the chat history: ${err.message}`);
+    addError(`Could not clear the chat history: ${err.message}`);
   }
 });
 
+// ==========================================================
+// Initialization
+// ==========================================================
+
 async function init() {
-  const hasSavedConversation = await restoreConversation();
+  await restoreConversation();
 
   // Check backend health
   const online = await checkBackendHealth();
   $connectionStatus.classList.toggle("online", online);
   $connectionStatus.classList.toggle("offline", !online);
-  $connectionStatus.querySelector(".status-text").textContent = online
-    ? "Backend connected"
-    : "Backend offline";
+  $connectionStatus.querySelector(".status-text").textContent = online ? "Connected" : "Offline";
 
   // Fetch datasets
   const datasets = await fetchDatasets();
 
   if (datasets === null) {
-    // Connection error
-    if (!hasSavedConversation) {
-      addMessage(
-        "assistant",
-        `👋 Hey! I'm your **Report Analysis Bot**.\n\n❌ Cannot connect to the backend server. Please make sure the FastAPI server is running at \`${BACKEND_URL}\`.`
-      );
-    }
+    state.datasetsError = true;
+    $emptyText.textContent = `Cannot connect to the backend. Make sure the FastAPI server is running at ${BACKEND_URL}.`;
+    updateDatasetUI();
     return;
   }
 
   state.datasets = datasets;
-  populateDatasets(datasets);
+  if (!datasets.length) {
+    $emptyText.textContent = "There are no datasets in MongoDB yet. Upload a CSV or Excel file in the sidebar to start.";
+  }
 
-  if (state.selectedDataset && datasets.includes(state.selectedDataset)) {
-    $datasetSelect.value = state.selectedDataset;
-    $useDatasetBtn.disabled = false;
-  } else {
+  if (!state.selectedDataset || !datasets.includes(state.selectedDataset)) {
     state.selectedDataset = null;
     saveSelectedDataset();
   }
-
-  if (!hasSavedConversation) showWelcomeMessage();
+  updateDatasetUI();
 }
 
 // Start the app
