@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create account · AI Report Analyst</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/styles.css" />
+  <link rel="stylesheet" href="/static/css/auth.css" />
+  <script>
+    try {
+      const theme = localStorage.getItem("theme");
+      if (theme) document.documentElement.dataset.theme = theme;
+    } catch {}
+  </script>
+</head>
+<body class="auth-page">
+
+  <!-- ===== Brand panel ===== -->
+  <aside class="auth-aside">
+    <a class="auth-brand" href="/login">
+      <span class="brand-mark" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="20" x2="6" y2="14"/><line x1="12" y1="20" x2="12" y2="8"/><line x1="18" y1="20" x2="18" y2="4"/></svg>
+      </span>
+      <span>AI Report Analyst</span>
+    </a>
+
+    <div class="auth-pitch">
+      <span class="auth-tag">Conversational data analysis</span>
+      <h1>Ask questions of your data.<br /><em>Get reports in seconds.</em></h1>
+      <p>Upload a CSV or Excel file and ask in plain English. The analyst writes and runs the Pandas code, then answers with tables and charts.</p>
+      <div class="auth-preview" aria-hidden="true">
+        <div class="auth-preview-head"><span class="mono">sales_2024.csv</span><span>Monthly revenue</span></div>
+        <div class="auth-preview-bars">
+          <span style="height:38%"></span><span style="height:46%"></span><span style="height:54%"></span>
+          <span style="height:44%"></span><span style="height:64%"></span><span style="height:58%"></span>
+          <span style="height:78%"></span><span style="height:72%"></span><span style="height:86%"></span><span style="height:96%"></span>
+        </div>
+        <p class="auth-preview-foot">Example of a chart answer</p>
+      </div>
+    </div>
+
+    <p class="auth-aside-foot">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      Analysis code runs in an isolated Python sandbox
+    </p>
+  </aside>
+
+  <!-- ===== Sign-up form ===== -->
+  <main class="auth-main">
+    <a class="auth-brand auth-mobile-brand" href="/login">
+      <span class="brand-mark" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="20" x2="6" y2="14"/><line x1="12" y1="20" x2="12" y2="8"/><line x1="18" y1="20" x2="18" y2="4"/></svg>
+      </span>
+      <span>AI Report Analyst</span>
+    </a>
+
+    <section class="auth-card" id="signupCard">
+      <div class="steps" id="steps" data-step="1">
+        <div class="step active" id="stepAccount"><span class="step-dot">1</span>Account</div>
+        <div class="step-line" aria-hidden="true"><span></span></div>
+        <div class="step" id="stepProfile"><span class="step-dot">2</span>Profile</div>
+      </div>
+
+      <!-- Step 1: account details -->
+      <form id="accountForm" novalidate>
+        <h2>Create your account</h2>
+        <p class="lead">It takes less than a minute</p>
+        <div class="auth-banner hidden" id="accountBanner" role="alert">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <p id="accountBannerText"></p>
+        </div>
+        <div class="auth-form">
+        <div class="field" data-field="full_name">
+          <label for="full_name">Full name</label>
+          <div class="input-wrap">
+            <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <input id="full_name" name="full_name" type="text" autocomplete="name" placeholder="Sarah Chen" maxlength="100" required />
+          </div>
+          <p class="field-error" id="full_nameError"></p>
+        </div>
+        <div class="field" data-field="email">
+          <label for="email">Email address</label>
+          <div class="input-wrap">
+            <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>
+            <input id="email" name="email" type="email" autocomplete="email" placeholder="you@company.com" maxlength="254" required />
+          </div>
+          <p class="field-error" id="emailError"></p>
+        </div>
+        <div class="field" data-field="phone">
+          <label for="phone">Phone number <span class="optional">(optional)</span></label>
+          <div class="input-wrap">
+            <span class="phone-code"><input id="phoneCode" type="text" value="+91" inputmode="tel" maxlength="5" aria-label="Country code" autocomplete="tel-country-code" /></span>
+            <input id="phone" name="phone" type="tel" autocomplete="tel-national" placeholder="98765 43210" maxlength="15" />
+          </div>
+          <p class="field-error" id="phoneError"></p>
+        </div>
+        <div class="field" data-field="password">
+          <label for="new_password">Password</label>
+          <div class="input-wrap">
+            <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <input id="new_password" name="password" type="password" autocomplete="new-password" placeholder="Create a password" maxlength="128" required />
+            <button class="toggle-visibility" type="button" aria-label="Show password" aria-pressed="false" aria-controls="new_password">
+              <svg class="icon-eye" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg class="icon-eye-off" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </button>
+          </div>
+          <div class="strength" id="strength" data-score="0" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+          <div class="strength-row"><p class="field-hint">At least 8 characters, with a number and a symbol</p><span class="strength-label" id="strengthLabel" aria-live="polite"></span></div>
+          <p class="field-error" id="passwordError"></p>
+        </div>
+        <div class="field" data-field="confirm_password">
+          <label for="confirm_password">Confirm password</label>
+          <div class="input-wrap">
+            <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <input id="confirm_password" type="password" autocomplete="new-password" placeholder="Repeat the password" maxlength="128" required />
+            <button class="toggle-visibility" type="button" aria-label="Show password" aria-pressed="false" aria-controls="confirm_password">
+              <svg class="icon-eye" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg class="icon-eye-off" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </button>
+          </div>
+          <p class="field-error" id="confirm_passwordError"></p>
+        </div>
+        <div class="field" data-field="terms">
+          <label class="check">
+            <input type="checkbox" id="terms" aria-describedby="termsError" />
+            <span>I agree to the Terms of Service and Privacy Policy</span>
+          </label>
+          <p class="field-error" id="termsError"></p>
+        </div>
+
+        <button class="btn-block primary" type="submit" id="accountSubmit">Continue <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
+        </div>
+        <p class="auth-foot">Already have an account?<a href="/login">Sign in</a></p>
+      </form>
+
+      <!-- Step 2: profile -->
+      <form class="hidden" id="profileForm" novalidate>
+        <h2>Tell us about yourself</h2>
+        <p class="lead">This helps us personalize your reports</p>
+        <div class="auth-banner hidden" id="profileBanner" role="alert">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <p id="profileBannerText"></p>
+        </div>
+        <div class="auth-form">
+        <div class="field avatar-upload" data-field="avatar">
+          <button class="avatar-preview" type="button" id="avatarPreview" aria-label="Upload profile photo">
+            <span class="initials" id="avatarInitials">?</span>
+            <span class="avatar-badge" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span>
+          </button>
+          <input type="file" id="avatarInput" accept="image/png,image/jpeg" class="sr-only" tabindex="-1" />
+          <div class="avatar-actions">
+            <button class="link" type="button" id="avatarUpload">Upload photo</button>
+            <span class="divider hidden" id="avatarDivider">/</span>
+            <button class="link muted hidden" type="button" id="avatarRemove">Remove</button>
+          </div>
+          <p class="field-hint mono">JPG or PNG, max 2 MB</p>
+          <p class="field-error" id="avatarError"></p>
+        </div>
+        <div class="field" data-field="age">
+          <label for="age">Age <span class="optional">(optional)</span></label>
+          <div class="input-wrap">
+            <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <input id="age" name="age" type="number" inputmode="numeric" min="13" max="120" placeholder="29" />
+          </div>
+          <p class="field-error" id="ageError"></p>
+        </div>
+        <div class="field" data-field="company">
+          <label for="company">Company name <span class="optional">(optional)</span></label>
+          <div class="input-wrap">
+            <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01"/></svg>
+            <input id="company" name="company" type="text" autocomplete="organization" placeholder="QuantLogic Analytics" maxlength="120" />
+          </div>
+          <p class="field-error" id="companyError"></p>
+        </div>
+        <div class="field" data-field="job_title">
+          <label for="job_title">Job title / role <span class="optional">(optional)</span></label>
+          <div class="input-wrap">
+            <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+            <input id="job_title" name="job_title" type="text" autocomplete="organization-title" placeholder="Data Analyst" maxlength="120" />
+          </div>
+          <p class="field-error" id="job_titleError"></p>
+        </div>
+        <div class="field" data-field="industry">
+          <label for="industry">Industry <span class="optional">(optional)</span></label>
+          <div class="input-wrap">
+            <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 20h20M4 20V8l6 4V8l6 4V4h4v16"/></svg>
+            <select id="industry" name="industry"><option value="">Select an industry</option><option>Finance</option><option>Healthcare</option><option>Retail</option><option>Technology</option><option>Education</option><option>Other</option></select>
+            <svg class="select-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <p class="field-error" id="industryError"></p>
+        </div>
+        <div class="btn-row">
+          <button class="btn-block secondary" type="button" id="profileBack">Back</button>
+          <button class="btn-block primary" type="submit" id="profileSubmit">Create account <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
+        </div>
+        </div>
+        <button class="link skip" type="button" id="profileSkip">Skip for now</button>
+      </form>
+    </section>
+
+    <!-- Success -->
+    <section class="auth-card success-card hidden" id="successCard" aria-live="polite">
+      <div class="success-icon" aria-hidden="true">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      </div>
+      <h2>Your account is ready</h2>
+      <p class="welcome" id="successWelcome">Welcome!</p>
+      <p class="lead">Upload a dataset and start asking questions.</p>
+      <a class="btn-block primary" href="/" style="text-decoration:none">Go to dashboard <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+    </section>
+  </main>
+
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/auth.js"></script>
+</body>
+</html>

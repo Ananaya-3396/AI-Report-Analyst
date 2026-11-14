@@ -2,24 +2,17 @@
 
 import json
 import logging
-import os
 import re
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 
-from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_openai import ChatOpenAI
 from openai import OpenAIError
 
+from backend.core.config import DEBUG_LLM_IO, OPENAI_API_KEY, OPENAI_MODEL
+from backend.tool_calling.tools import RUN_PYTHON_TOOL
 
-load_dotenv()
-
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
-DEBUG_LLM_IO = os.getenv("DEBUG_LLM_IO", "false").strip().lower() in {
-    "1", "true", "yes", "on"
-}
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +25,7 @@ class LLMProviderError(Exception):
     """Raised when the configured provider cannot complete a request."""
 
 
-PROMPTS_DIR = Path(__file__).with_name("prompts")
+PROMPTS_DIR = Path(__file__).resolve().parents[1] / "prompts"
 
 # What the routing call can answer, and the prompt files each answer loads.
 TASK_PROMPTS = {
@@ -46,20 +39,6 @@ ROUTER_MAX_MESSAGE_CHARS = 300
 MAX_TOOL_ROUNDS = 5
 MAX_TOOL_OUTPUT_CHARS = 8_000
 
-RUN_PYTHON_TOOL = {
-    "type": "function",
-    "function": {
-        "name": "run_python",
-        "description": "Run Python in a notebook-style cell where df is the selected dataset.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "code": {"type": "string", "description": "The Python code to run."},
-            },
-            "required": ["code"],
-        },
-    },
-}
 
 
 def load_prompt(name: str) -> str:

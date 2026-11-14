@@ -15,7 +15,6 @@ RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY app ./app
 COPY backend ./backend
 COPY frontend ./frontend
 

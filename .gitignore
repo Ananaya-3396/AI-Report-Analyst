@@ -33,3 +33,5 @@ build/
 
 .claude/
 *.archive
+# User uploads (profile photos)
+uploads/

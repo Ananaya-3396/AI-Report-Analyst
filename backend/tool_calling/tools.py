@@ -1,4 +1,5 @@
-"""Run LLM-written Pandas code against a selected dataset in a separate process."""
+"""Tools the LLM can call. run_python runs LLM-written Pandas code against the
+selected dataset in a separate process (see sandbox_worker.py)."""
 
 from __future__ import annotations
 
@@ -11,7 +12,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from backend.database import get_database
+from backend.core.database import get_database
 
 
 MAX_ANALYSIS_ROWS = 100_000
@@ -19,6 +20,21 @@ CODE_TIMEOUT_SECONDS = 30
 WORKER_PATH = Path(__file__).with_name("sandbox_worker.py")
 # The worker gets only what Python needs on Windows, so API keys are not inherited.
 WORKER_ENV_VARS = ("SYSTEMROOT", "PATH", "TEMP", "TMP")
+
+RUN_PYTHON_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "run_python",
+        "description": "Run Python in a notebook-style cell where df is the selected dataset.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "code": {"type": "string", "description": "The Python code to run."},
+            },
+            "required": ["code"],
+        },
+    },
+}
 
 
 def load_dataframe(dataset_name: str) -> tuple[pd.DataFrame, int]:
